@@ -3,8 +3,14 @@ package gr.uom.facebooklogin;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -13,20 +19,24 @@ import com.facebook.AccessTokenTracker;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
 import com.facebook.FacebookException;
-import com.facebook.FacebookSdk;
 import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
-import com.facebook.appevents.AppEventsLogger;
 import com.facebook.login.LoginManager;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
-import com.squareup.picasso.Picasso;
+import com.facebook.share.model.ShareHashtag;
+import com.facebook.share.model.ShareLinkContent;
+import com.facebook.share.model.SharePhoto;
+import com.facebook.share.model.SharePhotoContent;
+import com.facebook.share.widget.ShareButton;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Arrays;
 
+
+// HRYd
 
 public class MainActivity extends AppCompatActivity {
 
@@ -36,6 +46,11 @@ public class MainActivity extends AppCompatActivity {
     private ImageView imageView;
     private TextView textView;
 
+    private ShareButton sbLink;
+    private ShareButton sbPhoto;
+
+    private Button switchButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,7 +58,15 @@ public class MainActivity extends AppCompatActivity {
 
         loginButton = findViewById(R.id.login_button);
         textView = findViewById(R.id.tv_name);
-        imageView = findViewById(R.id.iv_profilePic);
+        imageView = findViewById(R.id.iv_story);
+
+        sbLink = findViewById(R.id.sb_link);
+        sbPhoto = findViewById(R.id.sb_photo);
+
+        switchButton = findViewById(R.id.switch_button);
+
+
+        imageView.setImageResource(R.drawable.story);
 
         callbackManager = CallbackManager.Factory.create();
 
@@ -55,6 +78,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(LoginResult loginResult) {
                 Log.d("DEMO", "Login Successful!");
+                sbLink.setEnabled(true);
+                sbPhoto.setEnabled(true);
             }
 
             @Override
@@ -70,43 +95,54 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        switchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                switchToInstaHashtagActivity();
+            }
+        });
+
     }
 
 
+    private void switchToInstaHashtagActivity(){
+        Intent switchActivityIntent = new Intent(this, InstagramHashtag.class);
+        startActivity(switchActivityIntent);
+
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
         callbackManager.onActivityResult(requestCode, resultCode, data);
         super.onActivityResult(requestCode, resultCode, data);
+        Log.d("DEMO", "returned");
+        // prepare content to be shared when the Share Link button is pressed
+        ShareLinkContent shareLinkContent = new ShareLinkContent.Builder().setContentUrl(Uri.parse(
+                "https://www.youtube.com/watch?v=GxrxV37a9YE"))
+                .setShareHashtag(new ShareHashtag.Builder()
+                    .setHashtag("#success").build()).build();
 
-        GraphRequest graphRequest =  GraphRequest.newMeRequest(AccessToken.getCurrentAccessToken(),
-                new GraphRequest.GraphJSONObjectCallback() {
-                    @Override
-                    public void onCompleted(JSONObject object, GraphResponse response) {
-                        Log.d("DEMO", object.toString());
+        sbLink.setShareContent(shareLinkContent);
 
-                        try {
+        // prepare photo to be shared when the Share Photo button is pressed
+        try{
+            Drawable drawable = imageView.getDrawable();
+            Bitmap bitmap = ((BitmapDrawable) drawable).getBitmap();
 
-                            // get name and profile pic
-                            String name = object.getString("name");
-                            String id = object.getString("id");
+            SharePhoto sharePhoto = new SharePhoto.Builder()
+                    .setBitmap(bitmap)
+                    .build();
 
-                            textView.setText(name);
-                            Picasso.get().load("https://graph.facebook.com/" + id + "/picture/")
-                                    .into(imageView);
+            SharePhotoContent sharePhotoContent = new SharePhotoContent.Builder()
+                    .addPhoto(sharePhoto)
+                    .build();
 
+            sbPhoto.setShareContent(sharePhotoContent);}
+        catch (NullPointerException e){
+            Log.d("DEMO", "An unexpected Error occurred while handling the image to be shared");
+        }
 
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
-
-        // create bundle
-        Bundle bundle = new Bundle();
-        bundle.putString("fields", "gender, name, id, first_name, last_name");
-
-        graphRequest.setParameters(bundle);
-        graphRequest.executeAsync();
     }
 
     AccessTokenTracker accessTokenTracker = new AccessTokenTracker() {
@@ -115,7 +151,8 @@ public class MainActivity extends AppCompatActivity {
             if (currentAccessToken == null){
                 LoginManager.getInstance().logOut();
                 textView.setText("");
-                imageView.setImageResource(0);
+                sbLink.setEnabled(false);
+                sbPhoto.setEnabled(false);
             }
         }
     };
